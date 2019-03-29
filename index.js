@@ -62,7 +62,7 @@ class Options {
         this.applicationPath = options.noApplicationPath ? "" : appPath.toString();
         this.debug = options.debug;
         this.options = {};
-        this.configDirs = this.argv["config-dirs"] ||  options.configDirs || xdg.configDirs;
+        this.configDirs = this.argv["config-dir"] ||  options.configDirs || xdg.configDirs;
         this._read();
     }
 
