@@ -1,6 +1,6 @@
 {
   "name": "@jhanssen/options",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "description": "Options parser that looks at argv, environment variables and a config file.",
   "main": "index.js",
   "scripts": {
