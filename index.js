@@ -62,6 +62,7 @@ class Options {
         this.applicationPath = options.noApplicationPath ? "" : appPath.toString();
         this.debug = options.debug;
         this.options = {};
+        this.configDirs = this.argv["config-dirs"] ||  options.configDirs || xdg.configDirs;
         this._read();
     }
 
@@ -117,8 +118,11 @@ class Options {
                 read(file);
             } else {
                 let seen = new Set();
-                this.additionalFiles.forEach(read);
-                ([this.applicationPath, this._homedir()].concat(xdg.configDirs)).forEach(root => {
+                this.additionalFiles.forEach(file => {
+                    if (path.isAbsolute(file))
+                        read(file);
+                });
+                ([this.applicationPath, this._homedir()].concat(this.configDirs)).forEach(root => {
                     // in case we appended with undefined
                     if (!root)
                         return;
@@ -128,6 +132,15 @@ class Options {
                     let filePath = path.join(root, file);
                     if (!read(filePath))
                         read(filePath + ".conf");
+
+                    this.additionalFiles.forEach(additional => {
+                        if (!path.isAbsolute(additional)) {
+                            let file = path.join(root, additional);
+                            if (!read(file))
+                                read(file + ".conf");
+                        }
+                    });
+
                 });
             }
             for (let i = data.length - 1; i >= 0; --i) {
