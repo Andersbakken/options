@@ -97,84 +97,89 @@ class Options {
         let file = this.value("config-file");
         if (!file && this.prefix)
             file = this.prefix + ".conf";
-        if (file) {
-            let data = [];
-            const read = file => {
-                try {
-                    const contents = fs.readFileSync(file, "utf8");
-                    this._log(`Loaded ${contents.length} bytes from ${file}`);
+        if (!file)
+            return;
 
-                    if (contents) {
-                        data.push({ file: file, contents: contents });
-                        return true;
-                    }
-                } catch (e) {
-                    this._log(`Failed to load ${file}`);
+        let data = [];
+        let seen = new Set();
+        const Failed = 0;
+        const Success = 1;
+        const Seen = 2;
+        const read = file => {
+            if (seen.has(file))
+                return Seen;
+            seen.add(file);
+            try {
+                const contents = fs.readFileSync(file, "utf8");
+                this._log(`Loaded ${contents.length} bytes from ${file}`);
+
+                if (contents) {
+                    data.push({ file: file, contents: contents });
+                    return Success;
                 }
-                return false;
-            };
-
-            if (path.isAbsolute(file)) {
-                read(file);
-            } else {
-                let seen = new Set();
-                this.additionalFiles.forEach(file => {
-                    if (path.isAbsolute(file))
-                        read(file);
-                });
-                ([this.applicationPath, this._homedir()].concat(this.configDirs)).forEach(root => {
-                    // in case we appended with undefined
-                    if (!root)
-                        return;
-                    if (seen.has(root))
-                        return;
-                    seen.add(root);
-                    let filePath = path.join(root, file);
-                    if (!read(filePath))
-                        read(filePath + ".conf");
-
-                    this.additionalFiles.forEach(additional => {
-                        if (!path.isAbsolute(additional)) {
-                            let file = path.join(root, additional);
-                            if (!read(file))
-                                read(file + ".conf");
-                        }
-                    });
-
-                });
+            } catch (e) {
+                this._log(`Failed to load ${file}`);
             }
-            for (let i = data.length - 1; i >= 0; --i) {
-                let str = data[i].contents;
-                if (!str)
-                    continue;
-                try {
-                    let obj = JSON.parse(str);
-                    for (let key in obj) {
-                        this._log(`Assigning ${obj[key]} over ${this.options[key]} for ${key} from ${data[i].file} (JSON)`);
-                        this.options[key] = obj[key];
+            return Failed;
+        };
+
+        // console.log("about to read file", file, "additionalFiles", this.additionalFiles, "configDirs", this.configDirs, "applicationPath", this.applicationPath, "homedir", this._homedir());
+        if (path.isAbsolute(file)) {
+            read(file);
+        } else {
+            this.additionalFiles.forEach(file => {
+                if (path.isAbsolute(file) && read(file) == Failed)
+                    read(file + ".conf");
+            });
+            ([this.applicationPath, this._homedir()].concat(this.configDirs)).forEach(root => {
+                // in case we appended with undefined
+                if (!root)
+                    return;
+                let filePath = path.join(root, file);
+                if (read(filePath) == Failed)
+                    read(filePath + ".conf");
+
+                this.additionalFiles.forEach(additional => {
+                    if (!path.isAbsolute(additional)) {
+                        let file = path.join(root, additional);
+                        if (read(file) == Failed)
+                            read(file + ".conf");
                     }
-                } catch (err) {
-                    const items = split(str);
-                    for (let i = 0; i < items.length; ++i) {
-                        const item = items[i].trim();
-                        if (!item.length)
-                            continue;
-                        if (item[0] === "#")
-                            continue;
-                        const eq = item.indexOf("=");
-                        if (eq === -1) {
-                            this._log("Couldn't find =", item);
-                            continue;
-                        }
-                        const key = item.substr(0, eq).trim();
-                        if (!key.length) {
-                            this._log("empty key", item);
-                            continue;
-                        }
-                        const value = item.substr(eq + 1).trim();
-                        this._log(`Assigning ${value} over ${this.options[key]} for ${key} from ${data[i].file} (INI)`);
-                        this.options[key] = value;
+                });
+
+            });
+        }
+        for (let i = data.length - 1; i >= 0; --i) {
+            let str = data[i].contents;
+            if (!str)
+                continue;
+            try {
+                let obj = JSON.parse(str);
+                for (let key in obj) {
+                    this._log(`Assigning ${obj[key]} over ${this.options[key]} for ${key} from ${data[i].file} (JSON)`);
+                    this.options[key] = obj[key];
+                }
+            } catch (err) {
+                const items = split(str);
+                for (let i = 0; i < items.length; ++i) {
+                    const item = items[i].trim();
+                    if (!item.length)
+                        continue;
+                    if (item[0] === "#")
+                        continue;
+                    const eq = item.indexOf("=");
+                    if (eq === -1) {
+                        this._log("Couldn't find =", item);
+                        continue;
                     }
+                    const key = item.substr(0, eq).trim();
+                    if (!key.length) {
+                        this._log("empty key", item);
+                        continue;
+                    }
+                    const value = item.substr(eq + 1).trim();
+                    this._log(`Assigning ${value} over ${this.options[key]} for ${key} from ${data[i].file} (INI)`);
+                    this.options[key] = value;
                 }
             }
         }
