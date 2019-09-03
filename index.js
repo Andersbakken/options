@@ -135,10 +135,6 @@ class Options {
                 // in case we appended with undefined
                 if (!root)
                     return;
-                let filePath = path.join(root, file);
-                if (read(filePath) == Failed)
-                    read(filePath + ".conf");
-
                 this.additionalFiles.forEach(additional => {
                     if (!path.isAbsolute(additional)) {
                         let file = path.join(root, additional);
@@ -147,6 +143,9 @@ class Options {
                     }
                 });
 
+                let filePath = path.join(root, file);
+                if (read(filePath) == Failed)
+                    read(filePath + ".conf");
             });
         }
         for (let i = data.length - 1; i >= 0; --i) {
